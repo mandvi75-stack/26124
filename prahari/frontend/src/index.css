@@ -1,0 +1,229 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Light mode CSS variables */
+    --background: 214 100% 97%;        /* f0f4fb */
+    --foreground: 222 47% 11%;         /* 1e293b */
+    --card: 220 100% 99%;              /* f8faff */
+    --card-foreground: 222 47% 11%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 11%;
+    --primary: 239 84% 67%;            /* indigo-500 */
+    --primary-foreground: 0 0% 100%;
+    --secondary: 215 28% 96%;          /* slate-100 */
+    --secondary-foreground: 222 47% 11%;
+    --muted: 215 20% 93%;
+    --muted-foreground: 215 16% 47%;   /* slate-500 */
+    --accent: 215 28% 93%;
+    --accent-foreground: 222 47% 11%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 214 32% 91%;             /* e2e8f4 */
+    --input: 214 32% 91%;
+    --ring: 239 84% 67%;
+    --radius: 0.625rem;
+  }
+}
+
+@layer base {
+  * { @apply border-border; }
+  body {
+    @apply bg-prahari-bg text-prahari-text font-sans antialiased;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+
+  /* Light scrollbars */
+  ::-webkit-scrollbar { width: 5px; height: 5px; }
+  ::-webkit-scrollbar-track { background: #f0f4fb; }
+  ::-webkit-scrollbar-thumb { background: #c7d4e8; border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: #a8bdd8; }
+}
+
+/* ── Glass Panel ───────────────────────────────────────────────────────────── */
+.glass-panel {
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(16px) saturate(180%);
+  -webkit-backdrop-filter: blur(16px) saturate(180%);
+  border: 1px solid rgba(226, 232, 244, 0.9);
+  box-shadow: 0 2px 12px rgba(99, 102, 241, 0.06);
+}
+
+/* ── Metric / Info Cards ───────────────────────────────────────────────────── */
+.prahari-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f4;
+  border-radius: 0.75rem;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+  transition: box-shadow 0.2s;
+}
+.prahari-card:hover {
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.1);
+}
+
+/* ── Gradient Text ─────────────────────────────────────────────────────────── */
+.gradient-text {
+  background: linear-gradient(135deg, #6366f1 0%, #0ea5e9 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.gradient-text-danger {
+  background: linear-gradient(135deg, #ef4444 0%, #f59e0b 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ── Status Blink ──────────────────────────────────────────────────────────── */
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+.status-blink { animation: blink 1.5s ease-in-out infinite; }
+
+/* ── Risk Level Badge Colors ───────────────────────────────────────────────── */
+.risk-critical { background: #fef2f2; color: #dc2626; border: 1px solid #fca5a5; }
+.risk-high     { background: #fff7ed; color: #ea580c; border: 1px solid #fdba74; }
+.risk-moderate { background: #fefce8; color: #ca8a04; border: 1px solid #fde047; }
+.risk-low      { background: #f0fdf4; color: #16a34a; border: 1px solid #86efac; }
+
+/* ── Severity Badge Colors ─────────────────────────────────────────────────── */
+.sev-critical { @apply bg-red-50 text-red-700 border border-red-200; }
+.sev-high     { @apply bg-orange-50 text-orange-700 border border-orange-200; }
+.sev-medium   { @apply bg-amber-50 text-amber-700 border border-amber-200; }
+.sev-low      { @apply bg-green-50 text-green-700 border border-green-200; }
+
+/* ── Map Container (Leaflet + MapTiler) ────────────────────────────────────── */
+.prahari-map-container {
+  position: relative;
+  z-index: 0;
+  border-radius: 0.75rem;
+  overflow: hidden;
+  border: 1px solid #e2e8f4;
+  isolation: isolate;
+}
+
+/* Leaflet z-index containment — must stay below notifications (z-index 9999) */
+.prahari-map-container .leaflet-pane         { z-index: 4; }
+.prahari-map-container .leaflet-tile-pane    { z-index: 2; }
+.prahari-map-container .leaflet-overlay-pane { z-index: 4; }
+.prahari-map-container .leaflet-shadow-pane  { z-index: 5; }
+.prahari-map-container .leaflet-marker-pane  { z-index: 6; }
+.prahari-map-container .leaflet-tooltip-pane { z-index: 650; }
+.prahari-map-container .leaflet-popup-pane   { z-index: 700; }
+.prahari-map-container .leaflet-top,
+.prahari-map-container .leaflet-bottom       { z-index: 800; }
+
+/* Leaflet popup styling — light theme */
+.leaflet-popup-content-wrapper {
+  background: #ffffff !important;
+  border-radius: 0.75rem !important;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.12) !important;
+  border: 1px solid #e2e8f4 !important;
+  padding: 0 !important;
+}
+.leaflet-popup-content {
+  margin: 12px 14px !important;
+  font-family: 'Inter', system-ui, sans-serif !important;
+  font-size: 13px !important;
+  color: #1e293b !important;
+}
+.leaflet-popup-tip {
+  background: #ffffff !important;
+}
+.leaflet-popup-close-button {
+  color: #64748b !important;
+  font-size: 18px !important;
+  top: 8px !important;
+  right: 8px !important;
+}
+.leaflet-popup-close-button:hover { color: #1e293b !important; }
+.leaflet-control-attribution {
+  font-size: 10px !important;
+  background: rgba(255,255,255,0.75) !important;
+}
+.leaflet-control-zoom a {
+  color: #475569 !important;
+  background: #ffffff !important;
+  border-color: #e2e8f4 !important;
+}
+.leaflet-control-zoom a:hover { background: #f0f4fb !important; }
+
+/* ── Notification Dropdown ─────────────────────────────────────────────────── */
+.notif-dropdown {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 8px);
+  z-index: 9999;
+  width: 360px;
+  background: #ffffff;
+  border: 1px solid #e2e8f4;
+  border-radius: 0.875rem;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.12);
+}
+
+/* ── Sidebar ───────────────────────────────────────────────────────────────── */
+.sidebar-nav-item {
+  @apply flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150;
+  color: #64748b;
+}
+.sidebar-nav-item:hover {
+  background: #f0f4fb;
+  color: #1e293b;
+}
+.sidebar-nav-item.active {
+  background: linear-gradient(135deg, rgba(99,102,241,0.1) 0%, rgba(14,165,233,0.08) 100%);
+  color: #4f46e5;
+  border: 1px solid rgba(99,102,241,0.2);
+}
+
+/* ── Pulse animation for bus markers ──────────────────────────────────────── */
+@keyframes marker-pulse {
+  0% { transform: scale(1); opacity: 0.8; }
+  50% { transform: scale(1.5); opacity: 0.2; }
+  100% { transform: scale(1); opacity: 0.8; }
+}
+
+/* ── Page transitions ──────────────────────────────────────────────────────── */
+@keyframes page-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.page-enter { animation: page-in 0.2s ease-out; }
+
+/* ── Simulation badge ──────────────────────────────────────────────────────── */
+.sim-badge {
+  @apply inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold;
+  background: rgba(14,165,233,0.1);
+  color: #0369a1;
+  border: 1px solid rgba(14,165,233,0.25);
+}
+
+/* ── Data source pill ──────────────────────────────────────────────────────── */
+.data-live       { background: #f0fdf4; color: #16a34a; border: 1px solid #86efac; }
+.data-simulation { background: #eff6ff; color: #2563eb; border: 1px solid #93c5fd; }
+.data-historical { background: #f5f3ff; color: #7c3aed; border: 1px solid #c4b5fd; }
+
+/* ── Input focus override for light theme ──────────────────────────────────── */
+input:focus, textarea:focus, select:focus {
+  outline: none;
+  ring: none;
+  border-color: #6366f1;
+  box-shadow: 0 0 0 3px rgba(99,102,241,0.15);
+}
+
+/* ── Topbar z-index fix ────────────────────────────────────────────────────── */
+.prahari-topbar {
+  position: relative;
+  z-index: 100;
+}
+
+/* ── Map must never cover UI ───────────────────────────────────────────────── */
+.map-wrapper {
+  position: relative;
+  z-index: 0;
+  isolation: isolate;
+}

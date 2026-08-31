@@ -1,0 +1,81 @@
+from fastapi import APIRouter, Query, HTTPException
+from typing import Optional
+from ..simulation.local_engine import simulation_engine
+
+router = APIRouter(prefix="/ai", tags=["ai"])
+
+
+@router.get("/detections")
+async def get_detections(bus_id: Optional[str] = Query(None)):
+    if bus_id:
+        frame = simulation_engine.get_camera_frame(bus_id, "FRONT")
+        if not frame: raise HTTPException(404, "Bus not found")
+        return {"objects": frame["objects"], "stats": frame["stats"], "source": "simulation_test", "message": "Deterministic test input; no model inference is claimed."}
+    
+    # Return aggregated detections across all buses
+    all_objects = []
+    for bid in list(simulation_engine.buses.keys())[:5]:
+        data = simulation_engine.get_camera_frame(bid, "FRONT")
+        if data: all_objects.extend(data["objects"])
+    
+    return {"objects": all_objects[:30], "stats": {
+        "fps": 5,
+        "latency_ms": 0,
+        "objects_per_frame": len(all_objects),
+        "events_per_minute": 0,
+        "total_detections": 0,
+        "active_tracks": len(all_objects),
+    }}
+
+
+@router.get("/cameras/{bus_id}")
+async def get_camera_feeds(bus_id: str):
+    bus = simulation_engine.get_bus(bus_id)
+    if not bus:
+        return []
+    
+    cameras = []
+    for position in ["FRONT", "REAR", "LEFT", "RIGHT", "CABIN"]:
+        detections = simulation_engine.get_camera_frame(bus_id, position)
+        cameras.append({
+            "camera_id": f"{bus_id}-{position}",
+            "bus_id": bus_id,
+            "position": position,
+            "status": detections["status"],
+            "fps": detections["stats"].get("fps", 5),
+            "resolution": "1920x1080",
+            "objects": detections["objects"],
+            "events": [],
+            "frame_count": 0,
+            "last_detection_time": bus["last_update"],
+        })
+    
+    return cameras
+
+
+@router.get("/stats")
+async def get_ai_stats():
+    buses = simulation_engine.get_all_buses()
+    active = sum(1 for b in buses if b["ai_status"] in ["ACTIVE", "PROCESSING"])
+    return {
+        "active_ai_buses": active,
+        "total_buses": len(buses),
+        "global_fps": 5,
+        "global_latency_ms": 0,
+        "total_detections_today": 0,
+        "events_generated_today": 0,
+        "models": {
+            "detection": "No model loaded — simulation/test adapter",
+            "tracking": "Deterministic test tracking IDs",
+            "ocr": "OCR adapter not configured",
+        }
+    }
+
+
+@router.get("/plates")
+async def get_number_plates(
+    bus_id: Optional[str] = Query(None),
+    limit: int = Query(50, le=200)
+):
+    """No fabricated registrations are returned; plug an OCR adapter in here."""
+    return []
