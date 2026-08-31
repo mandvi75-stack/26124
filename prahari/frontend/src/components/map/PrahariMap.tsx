@@ -9,11 +9,10 @@
  * - If the key is absent we show a small config note — not a fake map.
  */
 
-import { useEffect, useRef, useCallback } from 'react'
+import { useEffect, useRef } from 'react'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
-import { Bus, Incident, RoadDefect } from '@/types'
-import { MapPin, AlertCircle } from 'lucide-react'
+import { Bus, Incident, RoadDefect, GeoPoint } from '@/types'
 
 // ── Fix Leaflet default marker icon paths broken by Vite bundling ─────────────
 // @ts-ignore
@@ -124,11 +123,20 @@ interface RiskZone {
   factors: string[]
 }
 
+export interface RouteLine {
+  id: string
+  name: string
+  color: string
+  waypoints: GeoPoint[]
+  delayed?: boolean
+}
+
 export interface PrahariMapProps {
   buses?: Bus[]
   incidents?: Incident[]
   defects?: RoadDefect[]
   riskZones?: RiskZone[]
+  routeLines?: RouteLine[]
   userLocation?: [number, number] | null
   onBusClick?: (bus: Bus) => void
   onIncidentClick?: (incident: Incident) => void
@@ -141,6 +149,7 @@ export default function PrahariMap({
   incidents = [],
   defects = [],
   riskZones = [],
+  routeLines = [],
   userLocation,
   onBusClick,
   onIncidentClick,
@@ -150,6 +159,7 @@ export default function PrahariMap({
   const mapRef           = useRef<L.Map | null>(null)
   const initializedRef   = useRef(false)
   const tileLayerRef     = useRef<L.TileLayer | null>(null)
+  const routeLayerRef    = useRef<L.LayerGroup | null>(null)
 
   // Marker registries — keyed by ID, updated in-place
   const busMarkersRef       = useRef<Map<string, L.Marker>>(new Map())
@@ -181,6 +191,7 @@ export default function PrahariMap({
 
     defectLayerRef.current = L.layerGroup().addTo(map)
     riskLayerRef.current   = L.layerGroup().addTo(map)
+    routeLayerRef.current  = L.layerGroup().addTo(map)
 
     mapRef.current = map
 
@@ -398,6 +409,31 @@ export default function PrahariMap({
         `, { maxWidth: 180 })
     })
   }, [defects])
+
+  useEffect(() => {
+    const layer = routeLayerRef.current
+    if (!layer) return
+
+    layer.clearLayers()
+    ;(routeLines ?? []).forEach((route) => {
+      if (!route.waypoints || route.waypoints.length < 2) return
+
+      const points = route.waypoints.map(p => [p.lat, p.lng] as [number, number])
+      const polyline = L.polyline(points, {
+        color: route.color,
+        weight: route.delayed ? 4 : 3,
+        opacity: route.delayed ? 0.95 : 0.8,
+        dashArray: route.delayed ? undefined : '8 8',
+      }).addTo(layer)
+
+      polyline.bindPopup(`
+        <div style="font-family:Inter,sans-serif;min-width:150px">
+          <div style="font-weight:700;color:${route.color};margin-bottom:4px">${route.name}</div>
+          <div style="font-size:11px;color:#64748b">${route.delayed ? 'Delayed route' : 'Alternative route'}</div>
+        </div>
+      `, { maxWidth: 180 })
+    })
+  }, [routeLines])
 
   // No API key needed — we fall back to OSM. No "required" screen.
   return (
