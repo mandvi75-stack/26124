@@ -10,7 +10,7 @@ once the user grants browser location permission.
 import asyncio
 import math
 from datetime import datetime, timezone
-from typing import Any, Awaitable, Callable
+from typing import Any, Awaitable, Callable, Optional
 
 # Risk event types that feed the road-risk intelligence system
 RISK_EVENT_TYPES = [
@@ -50,6 +50,15 @@ def cardinal(degrees: float) -> str:
     return ("N", "NE", "E", "SE", "S", "SW", "W", "NW")[round(degrees / 45) % 8]
 
 
+def _safe_float(value: Any, default: float = 0.0) -> float:
+    if value is None or value == "":
+        return float(default)
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return float(default)
+
+
 def _make_loop(center_lat: float, center_lng: float, index: int, bus_count: int):
     """Generate a circular waypoint loop around the given centre."""
     lat_step = 0.0038
@@ -75,18 +84,17 @@ class LocalSimulationEngine:
     """
 
     # Default starting centre — buses start here until location is granted.
-    # This is NOT shown to the user as "your location". The map is centred on
-    # the user's real device location; these coordinates are only used for the
-    # simulation loop geometry.
-    _DEFAULT_LAT = 0.0
-    _DEFAULT_LNG = 0.0
+    # This keeps the simulation anchored to Jaipur while the browser GPS can
+    # re-centre the map on the user's location when available.
+    _DEFAULT_LAT = 26.9124
+    _DEFAULT_LNG = 75.7873
 
     def __init__(self, bus_count: int = 8):
         self.bus_count = bus_count
         self.buses: dict[str, Any] = {}
         self.running = False
         self.tick = 0
-        self.operating_area: dict[str, Any] | None = None
+        self.operating_area: Optional[dict[str, Any]] = None
         self.subscribers: list[Callable[[str, Any], Awaitable[None]]] = []
         self.position_callback = None
         self.detection_callback = None
@@ -108,9 +116,9 @@ class LocalSimulationEngine:
                 "route_name": f"Simulation Loop {index % 3 + 1}",
                 "waypoints": loop,
                 "segment": index % 12,
-                "progress": (index % 5) / 5,
+                "progress": float((index % 5) / 5),
                 "status": "ONLINE",
-                "speed": 22 + (index % 5) * 4,
+                "speed": float(22 + (index % 5) * 4),
                 "camera_status": "ACTIVE",
                 "ai_status": "ACTIVE",
                 "gps_status": "ACTIVE",
@@ -120,7 +128,7 @@ class LocalSimulationEngine:
                 "data_source": "SIMULATION",
             }
 
-    async def configure_operating_area(self, latitude: float, longitude: float, location_name: str | None = None):
+    async def configure_operating_area(self, latitude: float, longitude: float, location_name: Optional[str] = None):
         """Relocate buses to loop around the confirmed device location."""
         self.operating_area = {
             "latitude": latitude,
@@ -144,14 +152,24 @@ class LocalSimulationEngine:
     def _public_bus(self, bus):
         if not bus:
             return None
-        waypoints = bus["waypoints"]
-        segment = bus["segment"]
-        a = waypoints[segment]
+        waypoints = bus.get("waypoints") or []
+        segment = int(bus.get("segment") or 0)
+        if not waypoints:
+            return {
+                **{k: v for k, v in bus.items() if k not in {"waypoints", "segment", "progress"}},
+                "lat": 0.0,
+                "lng": 0.0,
+                "direction": 0.0,
+                "heading": "N",
+                "trip_progress": 0,
+                "current_incident": None,
+            }
+        a = waypoints[segment % len(waypoints)]
         b = waypoints[(segment + 1) % len(waypoints)]
-        p = bus["progress"]
-        direction = bearing(a["lat"], a["lng"], b["lat"], b["lng"])
-        lat = round(a["lat"] + (b["lat"] - a["lat"]) * p, 6)
-        lng = round(a["lng"] + (b["lng"] - a["lng"]) * p, 6)
+        p = _safe_float(bus.get("progress"), default=0.0)
+        direction = bearing(_safe_float(a.get("lat"), 0.0), _safe_float(a.get("lng"), 0.0), _safe_float(b.get("lat"), 0.0), _safe_float(b.get("lng"), 0.0))
+        lat = round(_safe_float(a.get("lat"), 0.0) + (_safe_float(b.get("lat"), 0.0) - _safe_float(a.get("lat"), 0.0)) * p, 6)
+        lng = round(_safe_float(a.get("lng"), 0.0) + (_safe_float(b.get("lng"), 0.0) - _safe_float(a.get("lng"), 0.0)) * p, 6)
         return {
             **{k: v for k, v in bus.items() if k not in {"waypoints", "segment", "progress"}},
             "lat": lat,
@@ -242,19 +260,39 @@ class LocalSimulationEngine:
         }
 
     def _traffic(self):
+        jaipur_zones = [
+            ("Amber Road", 26.9124, 75.7873),
+            ("Malviya Nagar", 26.8388, 75.8034),
+            ("Vaishali Nagar", 26.9347, 75.7513),
+            ("Sanganer Corridor", 26.8135, 75.7858),
+            ("Civil Lines", 26.9297, 75.8108),
+            ("Jhotwara Junction", 26.9655, 75.7945),
+        ]
+
         zones = []
-        for i, bus in enumerate(self.get_all_buses()[:6]):
-            speed = bus["speed"]
+        for i, (name, lat, lng) in enumerate(jaipur_zones):
+            nearby = [b for b in self.get_all_buses() if abs(_safe_float(b.get("lat"), 0.0) - lat) < 0.08 and abs(_safe_float(b.get("lng"), 0.0) - lng) < 0.08]
+            avg_speed = sum(_safe_float(b.get("speed"), 0.0) for b in nearby) / max(1, len(nearby))
+            vehicle_count = max(20, min(180, int(28 + (self.tick + i * 7) % 56 + len(nearby) * 10)))
+            if avg_speed > 38:
+                congestion = "FREE"
+            elif avg_speed > 24:
+                congestion = "MODERATE"
+            elif avg_speed > 15:
+                congestion = "HEAVY"
+            else:
+                congestion = "SEVERE"
+
             zones.append({
-                "id": f"traffic-{i}",
-                "name": f"Simulation Zone {i + 1}",
-                "lat": bus["lat"],
-                "lng": bus["lng"],
-                "radius": 220,
-                "vehicle_count": 8 + (self.tick + i * 3) % 18,
-                "avg_speed": speed,
-                "vehicles_per_hour": (8 + (self.tick + i * 3) % 18) * 12,
-                "congestion_level": "HEAVY" if speed < 20 else "MODERATE" if speed < 30 else "FREE",
+                "id": f"traffic-{i+1}",
+                "name": name,
+                "lat": lat,
+                "lng": lng,
+                "radius": 320,
+                "vehicle_count": vehicle_count,
+                "avg_speed": round(avg_speed, 1),
+                "vehicles_per_hour": int(vehicle_count * 6),
+                "congestion_level": congestion,
                 "source": "simulation_test",
                 "timestamp": now(),
             })
@@ -290,10 +328,10 @@ class LocalSimulationEngine:
         while self.running:
             buses_list = list(self.buses.values())
             for bus in buses_list:
-                bus["progress"] += 0.035
+                bus["progress"] = _safe_float(bus.get("progress"), default=0.0) + 0.035
                 if bus["progress"] >= 1:
                     bus["progress"] -= 1
-                    bus["segment"] = (bus["segment"] + 1) % len(bus["waypoints"])
+                    bus["segment"] = (int(bus.get("segment") or 0) + 1) % len(bus["waypoints"])
                 bus["last_update"] = now()
                 snapshot = self._public_bus(bus)
                 if self.position_callback:

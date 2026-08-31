@@ -82,12 +82,37 @@ export default function Analytics() {
         <ChartPanel title="Incidents by Type">
           <ResponsiveContainer width="100%" height={200}>
             <PieChart>
-              <Pie data={incidentTypes} dataKey="count" nameKey="type" cx="50%" cy="50%" outerRadius={70} label={({ type, percent }) => `${type} ${(percent * 100).toFixed(0)}%`} labelLine={{ stroke: '#1e2d4a' }}>
+              <Pie
+                data={incidentTypes}
+                dataKey="count"
+                nameKey="type"
+                cx="50%"
+                cy="50%"
+                outerRadius={70}
+                label={({ type, percent }) => {
+                  if (typeof percent !== 'number' || percent < 0.08) return ''
+                  return type.length > 12 ? `${type.slice(0, 12)}...` : type
+                }}
+                labelLine={false}
+                stroke="#0b1220"
+                strokeWidth={1}
+              >
                 {incidentTypes.map((_, idx) => (
                   <Cell key={idx} fill={COLORS[idx % COLORS.length]} />
                 ))}
               </Pie>
-              <Tooltip contentStyle={TOOLTIP_STYLE} />
+              <Tooltip
+                contentStyle={{
+                  ...TOOLTIP_STYLE,
+                  backgroundColor: '#0b1220',
+                  borderColor: '#7dd3fc',
+                  color: '#f8fafc',
+                  boxShadow: '0 10px 20px rgba(15, 23, 42, 0.35)',
+                }}
+                labelStyle={{ color: '#f8fafc' }}
+                itemStyle={{ color: '#f8fafc' }}
+                formatter={(value: number, name: string) => [`${value}`, name]}
+              />
             </PieChart>
           </ResponsiveContainer>
         </ChartPanel>

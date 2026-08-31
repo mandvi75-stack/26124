@@ -52,7 +52,7 @@ export default function Settings() {
           <SettingsSection title="General Settings">
             <SettingGroup label="Platform">
               <SettingRow label="Platform Name" defaultValue="PRAHARI Command Center" />
-              <SettingRow label="City" defaultValue="New Delhi" />
+              <SettingRow label="City" defaultValue="Jaipur" />
               <SettingRow label="Time Zone" defaultValue="Asia/Kolkata" />
               <SettingRow label="Data Retention (days)" defaultValue="90" type="number" />
             </SettingGroup>

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { Clock, Bus, TrendingUp, MapPin, AlertCircle } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { fleetAPI } from '@/services/api'
@@ -28,6 +28,15 @@ export default function Routes() {
   }, [])
 
   const routeBuses = selectedRoute ? buses.filter(b => b.route_id === selectedRoute.id) : []
+  const alternativeRoute = useMemo(() => {
+    if (!selectedRoute || selectedRoute.current_delay <= 0) return null
+    return routes
+      .filter(route => route.id !== selectedRoute.id)
+      .sort((a, b) => {
+        if (a.current_delay !== b.current_delay) return a.current_delay - b.current_delay
+        return a.total_distance - b.total_distance
+      })[0] ?? null
+  }, [routes, selectedRoute])
 
   return (
     <div className="flex flex-col h-full p-3 gap-3">
@@ -93,7 +102,14 @@ export default function Routes() {
 
         {/* Map */}
         <div className="flex-1 relative rounded-lg overflow-hidden border border-prahari-border">
-          <PrahariMap buses={routeBuses} className="w-full h-full" />
+          <PrahariMap
+            buses={routeBuses}
+            routeLines={selectedRoute ? [
+              { id: selectedRoute.id, name: selectedRoute.name, color: selectedRoute.color, waypoints: selectedRoute.waypoints, delayed: true },
+              ...(alternativeRoute ? [{ id: alternativeRoute.id, name: alternativeRoute.name, color: '#60a5fa', waypoints: alternativeRoute.waypoints, delayed: false }] : [])
+            ] : []}
+            className="w-full h-full"
+          />
 
           {selectedRoute && (
             <div className="absolute top-3 right-3 glass-panel rounded-lg p-3 w-56 z-10">

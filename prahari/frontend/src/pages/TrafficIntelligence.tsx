@@ -1,9 +1,9 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { TrendingUp, Car, AlertTriangle, Activity } from 'lucide-react'
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts'
 import { usePrahariStore } from '@/store'
 import { trafficAPI } from '@/services/api'
-import { TrafficZone } from '@/types'
+import { Bus, TrafficZone } from '@/types'
 import { Badge } from '@/components/ui/badge'
 import PrahariMap from '@/components/map/PrahariMap'
 import { congestionBg, timeAgo } from '@/lib/utils'
@@ -24,7 +24,7 @@ const CONGESTION_COLORS = {
 }
 
 export default function TrafficIntelligence() {
-  const { trafficZones, setTrafficZones } = usePrahariStore()
+  const { trafficZones, setTrafficZones, buses } = usePrahariStore()
   const [trends, setTrends] = useState<TrafficTrend[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -59,6 +59,37 @@ export default function TrafficIntelligence() {
   const avgSpeed = trafficZones.length > 0
     ? Math.round(trafficZones.reduce((s, z) => s + z.avg_speed, 0) / trafficZones.length)
     : 0
+
+  const trafficVehicles = useMemo<Bus[]>(() => {
+    const zones = trafficZones.length ? trafficZones : []
+    return zones.flatMap((zone, zoneIndex) => {
+      const count = Math.max(1, Math.min(18, Math.ceil(zone.vehicle_count / 18)))
+      return Array.from({ length: count }, (_, pointIndex) => {
+        const angle = (pointIndex / count) * Math.PI * 2
+        const radius = (zone.radius || 350) / 1200
+        return {
+          id: `${zone.id}-${pointIndex}`,
+          bus_number: `V-${zoneIndex + 1}-${pointIndex + 1}`,
+          route_id: zone.id,
+          route_name: zone.name,
+          status: zone.congestion_level === 'FREE' ? 'ONLINE' : 'DEGRADED',
+          lat: zone.lat + Math.cos(angle) * radius,
+          lng: zone.lng + Math.sin(angle) * radius,
+          speed: zone.avg_speed,
+          direction: (pointIndex * 45) % 360,
+          heading: 'NE',
+          gps_status: 'ACTIVE',
+          camera_status: 'ACTIVE',
+          ai_status: 'ACTIVE',
+          current_incident: undefined,
+          trip_progress: 40 + (pointIndex % 3) * 15,
+          last_update: zone.timestamp,
+          driver_name: `Traffic-${pointIndex + 1}`,
+          passenger_count: Math.max(1, Math.round(zone.vehicle_count / count)),
+        } as Bus
+      })
+    })
+  }, [trafficZones])
 
   return (
     <div className="flex flex-col h-full p-3 gap-3">
@@ -162,7 +193,7 @@ export default function TrafficIntelligence() {
 
         {/* Map */}
         <div className="flex-1 relative rounded-lg overflow-hidden border border-prahari-border">
-          <PrahariMap className="w-full h-full" />
+          <PrahariMap buses={trafficVehicles} className="w-full h-full" />
 
           {/* Congestion legend */}
           <div className="absolute bottom-4 left-4 glass-panel rounded-lg p-2 z-10">

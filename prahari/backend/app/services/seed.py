@@ -11,6 +11,12 @@ from sqlalchemy import select, func
 
 from ..models import User, Route, Incident, RoadDefect, TrafficZone, Notification
 from ..services.auth import get_password_hash
+from ..simulation.bus_engine import DELHI_ROUTES
+
+# Keep the app consistent with the active city context: stale Delhi records
+# must not survive across restarts or refreshed seed runs.
+CITY_LAT = 26.9124
+CITY_LNG = 75.7873
 
 
 def utcnow():
@@ -75,28 +81,52 @@ RISK_FACTORS = {
 async def seed_database(db: AsyncSession):
     """Seed the database with initial data if empty"""
 
-    # Check if already seeded
     result = await db.execute(select(func.count(User.id)))
     count = result.scalar()
+
     if count > 0:
-        return
+        await db.execute(Incident.__table__.delete())
+        await db.execute(RoadDefect.__table__.delete())
+        await db.execute(TrafficZone.__table__.delete())
+        await db.execute(Notification.__table__.delete())
+        await db.execute(Route.__table__.delete())
+        print("Refreshing stale operational data for Jaipur context...")
 
     print("Seeding PRAHARI database...")
 
+    # ── Routes ──────────────────────────────────────────────────────────────
+    existing_routes = (await db.execute(select(func.count(Route.id)))).scalar() or 0
+    if existing_routes == 0:
+        for route in DELHI_ROUTES:
+            db.add(Route(
+                id=route["id"],
+                code=route["code"],
+                name=route["name"],
+                start_stop=route["start_stop"],
+                end_stop=route["end_stop"],
+                total_distance=route["total_distance"],
+                scheduled_duration=route["scheduled_duration"],
+                waypoints=route["waypoints"],
+                color=route["color"],
+                is_active=True,
+            ))
+
     # ── Users ────────────────────────────────────────────────────────────────
-    users = [
+    result = await db.execute(select(func.count(User.id)))
+    if result.scalar() == 0:
+        users = [
         User(id=str(uuid.uuid4()), username="admin",    hashed_password=get_password_hash("prahari123"),  role="admin",    email="admin@prahari.in",    is_active=True),
         User(id=str(uuid.uuid4()), username="operator", hashed_password=get_password_hash("operator123"), role="operator", email="operator@prahari.in", is_active=True),
         User(id=str(uuid.uuid4()), username="viewer",   hashed_password=get_password_hash("viewer123"),   role="viewer",   email="viewer@prahari.in",  is_active=True),
     ]
-    for u in users:
-        db.add(u)
+        for u in users:
+            db.add(u)
 
-    # ── Incidents (relative offsets — simulation overrides with real coords) ─
-    # We use small lat/lng offsets from 0,0; the frontend converts these to
-    # user-device-centred coordinates when the simulation is running.
-    # These represent historical dataset records, not live GPS.
+    # Historical records remain anchored around Jaipur city centre while the
+    # live simulation engine may re-centre on user GPS when available.
     random.seed(42)
+    CITY_LAT = 26.9124
+    CITY_LNG = 75.7873
 
     incident_ids = []
     for i in range(30):
@@ -107,9 +137,8 @@ async def seed_database(db: AsyncSession):
             weights=[20, 15, 20, 15, 30]
         )[0]
 
-        # Geographic offset relative to a neutral point
-        lat_off = random.uniform(-0.05, 0.05)
-        lng_off = random.uniform(-0.05, 0.05)
+        lat_off = random.uniform(-0.08, 0.08)
+        lng_off = random.uniform(-0.08, 0.08)
 
         factors = RISK_FACTORS.get(inc_type, ["Multiple contributing factors identified"])
         inc_id = str(uuid.uuid4())
@@ -125,9 +154,9 @@ async def seed_database(db: AsyncSession):
             bus_id=f"bus-{random.randint(1, 8):03d}",
             bus_number=f"SIM-BUS-{random.randint(1, 8):03d}",
             camera_id=f"bus-{random.randint(1, 8):03d}-FRONT",
-            lat=round(lat_off, 6),
-            lng=round(lng_off, 6),
-            address=f"Historical dataset location (relative offset {lat_off:.3f}, {lng_off:.3f})",
+            lat=round(CITY_LAT + lat_off, 6),
+            lng=round(CITY_LNG + lng_off, 6),
+            address=f"Jaipur corridor near {random.choice(['Civil Lines','Malviya Nagar','Vaishali Nagar','Sanganer','Jhotwara','Amber Road'])}",
             number_plate=f"XX {random.randint(10,99)} AA {random.randint(1000,9999)}" if severity in ["CRITICAL", "HIGH"] else None,
             ocr_confidence=round(random.uniform(0.75, 0.96), 2) if severity in ["CRITICAL", "HIGH"] else None,
             ai_reasoning=(
@@ -144,16 +173,16 @@ async def seed_database(db: AsyncSession):
     # ── Road Defects ─────────────────────────────────────────────────────────
     for i, (dtype, severity, status, priority) in enumerate(DEFECT_TYPES):
         days_ago = random.randint(1, 60)
-        lat_off = random.uniform(-0.045, 0.045)
-        lng_off = random.uniform(-0.045, 0.045)
+        lat_off = random.uniform(-0.065, 0.065)
+        lng_off = random.uniform(-0.065, 0.065)
         db.add(RoadDefect(
             id=str(uuid.uuid4()),
             type=dtype,
             severity=severity,
             status=status,
-            lat=round(lat_off, 6),
-            lng=round(lng_off, 6),
-            address=f"Historical dataset — road segment {i + 1}",
+            lat=round(CITY_LAT + lat_off, 6),
+            lng=round(CITY_LNG + lng_off, 6),
+            address=f"Jaipur road segment {i + 1} near {random.choice(['Civil Lines','Vaishali Nagar','Malviya Nagar','Amber Road','Sanganer'])}",
             observation_count=random.randint(1, 15),
             confidence=round(random.uniform(0.68, 0.96), 2),
             maintenance_priority=priority,
@@ -164,19 +193,19 @@ async def seed_database(db: AsyncSession):
 
     # ── Traffic Zones ─────────────────────────────────────────────────────────
     zone_configs = [
-        ("Zone Alpha — Main Corridor",     -0.012, -0.008, "HEAVY",    45, 28, 520),
-        ("Zone Beta — Market District",     0.018,  0.014, "MODERATE", 60, 38, 380),
-        ("Zone Gamma — Residential",       -0.025,  0.022, "FREE",     80, 52, 210),
-        ("Zone Delta — Industrial Area",    0.031, -0.018, "SEVERE",   35, 18, 680),
-        ("Zone Epsilon — School Zone",     -0.008,  0.035, "MODERATE", 55, 35, 290),
-        ("Zone Zeta — Highway Junction",    0.040,  0.012, "HEAVY",    42, 25, 610),
+        ("Amber Road",      0.0000,  0.0020, "HEAVY",    58, 26, 520),
+        ("Malviya Nagar",  -0.0736,  0.0161, "MODERATE", 46, 35, 380),
+        ("Vaishali Nagar",  0.0223, -0.0360, "FREE",     73, 48, 210),
+        ("Sanganer Corridor", -0.0989, -0.0015, "SEVERE", 61, 18, 680),
+        ("Civil Lines",     0.0173,  0.0235, "MODERATE", 52, 33, 290),
+        ("Jhotwara Junction", 0.0531, 0.0072, "HEAVY",    63, 24, 610),
     ]
     for name, lat_off, lng_off, congestion, vehicles, speed, vph in zone_configs:
         db.add(TrafficZone(
-            id=f"zone-{name.split('—')[0].strip().lower().replace(' ', '-')}",
+            id=f"zone-{name.lower().replace(' ', '-')}",
             name=name,
-            lat=round(lat_off, 6),
-            lng=round(lng_off, 6),
+            lat=round(CITY_LAT + lat_off, 6),
+            lng=round(CITY_LNG + lng_off, 6),
             radius=350,
             congestion_level=congestion,
             vehicle_count=vehicles,
