@@ -15,9 +15,9 @@ class PrahariWebSocket {
 
   private _connect() {
     try {
-      const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws'
-      const host = window.location.host
-      this.ws = new WebSocket(`${protocol}://${host}/ws/events`)
+      const configuredBase = (import.meta.env.VITE_WS_URL || import.meta.env.VITE_API_URL || window.location.origin).replace(/\/+$/, '')
+      const normalizedBase = configuredBase.replace(/^http:/, 'ws:').replace(/^https:/, 'wss:')
+      this.ws = new WebSocket(`${normalizedBase}/ws/events`)
 
       this.ws.onopen = () => {
         this.reconnectDelay = 2000

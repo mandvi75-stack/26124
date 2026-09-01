@@ -6,5 +6,10 @@
 /prahari/backend/prahari.db
 /prahari/backend/prahari.db-*
 
+# Environment files
+**/.env
+**/.env.*
+!**/.env.example
+
 # Frontend credentials
 /prahari/frontend/.env.local
