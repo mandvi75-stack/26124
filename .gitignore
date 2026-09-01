@@ -1,0 +1,10 @@
+# Python-generated files
+**/__pycache__/
+*.pyc
+
+# Local runtime data
+/prahari/backend/prahari.db
+/prahari/backend/prahari.db-*
+
+# Frontend credentials
+/prahari/frontend/.env.local
