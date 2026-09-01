@@ -1,5 +1,9 @@
-from fastapi import APIRouter, Query, HTTPException
+from fastapi import APIRouter, Depends, Query, HTTPException
 from typing import Optional
+from sqlalchemy import desc, select
+from sqlalchemy.ext.asyncio import AsyncSession
+from ..database import get_db
+from ..models import Incident
 from ..simulation.local_engine import simulation_engine
 
 router = APIRouter(prefix="/ai", tags=["ai"])
@@ -80,7 +84,25 @@ async def get_ai_stats():
 @router.get("/plates")
 async def get_number_plates(
     bus_id: Optional[str] = Query(None),
-    limit: int = Query(50, le=200)
+    limit: int = Query(50, le=200),
+    db: AsyncSession = Depends(get_db),
 ):
-    """No fabricated registrations are returned; plug an OCR adapter in here."""
-    return []
+    """Return plates already captured on persisted incident records."""
+    query = select(Incident).where(Incident.number_plate.is_not(None))
+    if bus_id:
+        query = query.where(Incident.bus_id == bus_id)
+    result = await db.execute(query.order_by(desc(Incident.timestamp)).limit(limit))
+    return [
+        {
+            "id": incident.id,
+            "plate_number": incident.number_plate,
+            "confidence": incident.ocr_confidence,
+            "bus_id": incident.bus_id,
+            "camera_id": incident.camera_id,
+            "lat": incident.lat,
+            "lng": incident.lng,
+            "timestamp": incident.timestamp.isoformat() if incident.timestamp else None,
+            "incident_id": incident.id,
+        }
+        for incident in result.scalars()
+    ]

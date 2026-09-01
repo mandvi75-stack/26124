@@ -20,8 +20,13 @@ RISK_EVENT_TYPES = [
     ("Pedestrian Danger",   "HIGH",   "Pedestrian movement near high-speed vehicle flow detected."),
     ("Road Obstruction",    "HIGH",   "Lane blocked by stationary object detected ahead of bus."),
     ("Rash Driving",        "HIGH",   "Vehicle exceeding safe speed for road conditions detected."),
+    ("Hit & Run",           "CRITICAL", "Vehicle collision followed by flight from the scene detected."),
+    ("Collision",           "CRITICAL", "Collision involving an identified vehicle detected."),
     ("Waterlogging",        "MEDIUM", "Standing water detected on road surface — aquaplaning risk."),
 ]
+
+VEHICLE_CLASSES = ["Car", "Bus", "Truck", "Motorcycle", "Auto-rickshaw", "Van"]
+PLATE_INCIDENT_TYPES = {"Rash Driving", "Hit & Run", "Collision"}
 
 RISK_FACTORS_MAP = {
     "Pothole Detected":     ["Uneven road surface", "High vehicle count", "Poor maintenance history"],
@@ -57,6 +62,12 @@ def _safe_float(value: Any, default: float = 0.0) -> float:
         return float(value)
     except (TypeError, ValueError):
         return float(default)
+
+
+def random_ocr_plate() -> str:
+    """Simulation OCR value retained from the original incident event schema."""
+    import random
+    return f"RJ {random.randint(10, 99):02d} {random.choice('ABCDEFGH')} {random.randint(1000, 9999):04d}"
 
 
 def _make_loop(center_lat: float, center_lng: float, index: int, bus_count: int):
@@ -242,6 +253,8 @@ class LocalSimulationEngine:
         factors = RISK_FACTORS_MAP.get(event_type, ["Multiple contributing factors"])
         confidence = round(random.uniform(0.72, 0.96), 2)
         pub = self._public_bus(bus)
+        number_plate = random_ocr_plate() if event_type in PLATE_INCIDENT_TYPES else None
+        ocr_confidence = round(random.uniform(0.72, 0.96), 2) if number_plate else None
         return {
             "type": event_type,
             "severity": severity,
@@ -249,8 +262,12 @@ class LocalSimulationEngine:
             "description": description,
             "bus_id": bus["id"],
             "bus_number": bus["bus_number"],
+            "camera_id": f"{bus['id']}-FRONT",
             "lat": pub["lat"],
             "lng": pub["lng"],
+            "vehicle_class": random.choice(VEHICLE_CLASSES) if number_plate else None,
+            "number_plate": number_plate,
+            "ocr_confidence": ocr_confidence,
             "contributing_factors": factors,
             "ai_reasoning": (
                 f"PRAHARI AI detected {event_type.lower()} with {round(confidence * 100)}% confidence "

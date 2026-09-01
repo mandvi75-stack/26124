@@ -212,6 +212,11 @@ function OperatorDashboard({ location, locState, onRetryLoc }: {
                       <span className="text-[9px] font-bold px-1 py-0.5 rounded" style={{ color: c, background: c+'18' }}>{inc.severity}</span>
                     </div>
                     <p className="text-[11px] text-prahari-muted line-clamp-1 mb-1.5">{inc.description}</p>
+                    {(inc.vehicle_class || inc.number_plate) && (
+                      <p className="text-[10px] font-medium text-amber-700 mb-1">
+                        {inc.vehicle_class ?? 'Offending vehicle'}{inc.number_plate ? ` · ${inc.number_plate}` : ''}
+                      </p>
+                    )}
                     <div className="flex items-center justify-between">
                       <span className="text-[10px] text-prahari-muted">{inc.bus_number} · {inc.status}</span>
                       {inc.status === 'DETECTED' && (
@@ -330,6 +335,9 @@ function AdminDashboard({ location, locState, onRetryLoc }: {
                         <span className="text-[9px] font-bold px-1 py-0.5 rounded flex-shrink-0" style={{ color: c, background: c+'18' }}>{inc.severity}</span>
                       </div>
                       <p className="text-[10px] text-prahari-muted">{inc.bus_number} · {inc.status}</p>
+                      {(inc.vehicle_class || inc.number_plate) && (
+                        <p className="text-[10px] text-amber-700 mt-0.5">{inc.vehicle_class ?? 'Offending vehicle'}{inc.number_plate ? ` · ${inc.number_plate}` : ''}</p>
+                      )}
                     </div>
                   </div>
                 )

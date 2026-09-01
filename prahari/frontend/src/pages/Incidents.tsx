@@ -274,10 +274,11 @@ export default function Incidents() {
                 )}
 
                 {/* Number plate */}
-                {selected.number_plate && (
+                {(selected.vehicle_class || selected.number_plate) && (
                   <div className="bg-amber-50 border border-amber-200 rounded-xl p-3">
-                    <p className="text-[10px] font-semibold text-amber-600 mb-1">NUMBER PLATE</p>
-                    <p className="text-sm font-bold text-amber-800 font-mono">{selected.number_plate}</p>
+                    <p className="text-[10px] font-semibold text-amber-600 mb-1">OFFENDING VEHICLE</p>
+                    {selected.vehicle_class && <p className="text-xs font-medium text-amber-800">{selected.vehicle_class}</p>}
+                    {selected.number_plate && <p className="text-sm font-bold text-amber-800 font-mono">{selected.number_plate}</p>}
                     {selected.ocr_confidence && (
                       <p className="text-[10px] text-amber-600">OCR confidence: {Math.round(selected.ocr_confidence * 100)}%</p>
                     )}
