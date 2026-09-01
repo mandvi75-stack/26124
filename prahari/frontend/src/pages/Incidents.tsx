@@ -284,6 +284,20 @@ export default function Incidents() {
                     )}
                   </div>
                 )}
+
+                {selected.authority_report && (
+                  <div className="bg-sky-50 border border-sky-200 rounded-xl p-3">
+                    <p className="text-[10px] font-semibold text-sky-700 uppercase tracking-wide mb-2">Authority Report</p>
+                    <p className="text-xs font-semibold text-sky-900">{selected.authority_report.authority_name}</p>
+                    <div className="mt-2 space-y-1 text-[11px] text-sky-800">
+                      <div>Status: <span className="font-semibold">{selected.authority_report.status}</span></div>
+                      <div>Report ID: <span className="font-mono font-semibold">{selected.authority_report.report_id}</span></div>
+                      <div>Responsible Authority: <span className="font-semibold">{selected.authority_report.authority_name}</span></div>
+                      {selected.authority_report.sent_at && <div>Sent: {new Date(selected.authority_report.sent_at).toLocaleString()}</div>}
+                      {selected.authority_report.acknowledged_at && <div>Acknowledged: {new Date(selected.authority_report.acknowledged_at).toLocaleString()}</div>}
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Actions */}

@@ -9,7 +9,7 @@ from datetime import datetime, timezone, timedelta
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 
-from ..models import User, Route, Incident, RoadDefect, TrafficZone, Notification
+from ..models import User, Route, Incident, RoadDefect, TrafficZone, Notification, InfrastructureItem
 from ..services.auth import get_password_hash
 from ..simulation.bus_engine import DELHI_ROUTES
 
@@ -87,6 +87,7 @@ async def seed_database(db: AsyncSession):
     if count > 0:
         await db.execute(Incident.__table__.delete())
         await db.execute(RoadDefect.__table__.delete())
+        await db.execute(InfrastructureItem.__table__.delete())
         await db.execute(TrafficZone.__table__.delete())
         await db.execute(Notification.__table__.delete())
         await db.execute(Route.__table__.delete())
@@ -189,6 +190,24 @@ async def seed_database(db: AsyncSession):
             assigned_team="PWD Team Alpha" if status in ["ASSIGNED", "UNDER_MAINTENANCE"] else None,
             first_observed=utcnow() - timedelta(days=days_ago),
             last_observed=utcnow() - timedelta(hours=random.randint(2, 72)),
+        ))
+
+    # ── Infrastructure items derived from real road defects ──────────────────
+    for i, (dtype, severity, status, priority) in enumerate(DEFECT_TYPES):
+        days_ago = random.randint(1, 60)
+        lat_off = random.uniform(-0.065, 0.065)
+        lng_off = random.uniform(-0.065, 0.065)
+        db.add(InfrastructureItem(
+            id=str(uuid.uuid4()),
+            type=dtype,
+            severity=severity,
+            status=status,
+            lat=round(CITY_LAT + lat_off, 6),
+            lng=round(CITY_LNG + lng_off, 6),
+            description=f"{dtype} observed in the field. Priority {priority} with current status {status}.",
+            first_detected=utcnow() - timedelta(days=days_ago),
+            last_verified=utcnow() - timedelta(hours=random.randint(2, 72)),
+            maintenance_id=f"maint-{i + 1:03d}",
         ))
 
     # ── Traffic Zones ─────────────────────────────────────────────────────────

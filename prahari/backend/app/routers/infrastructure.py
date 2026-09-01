@@ -1,18 +1,51 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, desc
+from sqlalchemy import select, desc, func
 from pydantic import BaseModel
 from typing import Optional
 from datetime import datetime, timezone
 
 from ..database import get_db
-from ..models import InfrastructureItem
+from ..models import InfrastructureItem, RoadDefect
 
 router = APIRouter(prefix="/infrastructure", tags=["infrastructure"])
 
 
+async def sync_infrastructure_items(db: AsyncSession):
+    """Backfill infrastructure records from existing road-defect data when the dedicated table is empty."""
+    count = (await db.execute(select(func.count(InfrastructureItem.id)))).scalar() or 0
+    if count > 0:
+        return
+
+    result = await db.execute(select(RoadDefect).order_by(desc(RoadDefect.last_observed)))
+    defects = result.scalars().all()
+    if not defects:
+        return
+
+    seen = set()
+    for defect in defects:
+        key = (defect.type, round(defect.lat, 6), round(defect.lng, 6))
+        if key in seen:
+            continue
+        seen.add(key)
+        db.add(InfrastructureItem(
+            id=defect.id,
+            type=defect.type,
+            severity=defect.severity,
+            status=defect.status,
+            lat=defect.lat,
+            lng=defect.lng,
+            description=f"{defect.type} observed in the field. Priority {defect.maintenance_priority}.",
+            first_detected=defect.first_observed or defect.last_observed,
+            last_verified=defect.last_observed,
+            maintenance_id=defect.id,
+        ))
+    await db.commit()
+
+
 @router.get("")
 async def get_items(db: AsyncSession = Depends(get_db)):
+    await sync_infrastructure_items(db)
     result = await db.execute(select(InfrastructureItem).order_by(desc(InfrastructureItem.first_detected)))
     items = result.scalars().all()
     return [item_to_dict(i) for i in items]

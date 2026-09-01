@@ -316,7 +316,7 @@ export default function AIVision() {
           </div>
 
           {/* Right panel */}
-          <div className="w-60 flex flex-col gap-3 flex-shrink-0 min-h-0 overflow-hidden">
+          <div className="w-60 flex flex-col gap-3 flex-shrink-0 min-h-0 overflow-y-auto overflow-x-hidden pr-1">
 
             {/* AI Processing stats */}
             <div className="prahari-card p-3">

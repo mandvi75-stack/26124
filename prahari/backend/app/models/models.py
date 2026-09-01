@@ -146,6 +146,21 @@ class Incident(Base):
     resolved_at = Column(DateTime(timezone=True), nullable=True)
 
 
+class AuthorityReport(Base):
+    __tablename__ = "authority_reports"
+    id = Column(String, primary_key=True, default=gen_uuid)
+    incident_id = Column(String, ForeignKey("incidents.id"), nullable=False, unique=True, index=True)
+    report_id = Column(String(120), nullable=False, unique=True, index=True)
+    authority_name = Column(String(200), nullable=False)
+    authority_type = Column(String(50), nullable=False)
+    status = Column(String(30), default="SENT")
+    sent_at = Column(DateTime(timezone=True), default=utcnow)
+    acknowledged_at = Column(DateTime(timezone=True), nullable=True)
+    resolved_at = Column(DateTime(timezone=True), nullable=True)
+    details = Column(JSON, default=dict)
+    created_at = Column(DateTime(timezone=True), default=utcnow)
+
+
 class RoadDefect(Base):
     __tablename__ = "road_defects"
     id = Column(String, primary_key=True, default=gen_uuid)

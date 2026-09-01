@@ -72,6 +72,7 @@ export interface Incident {
   evidence_url?: string
   contributing_factors?: string[]
   corroborating_buses?: string[]
+  authority_report?: AuthorityReport | null
 }
 
 export interface DetectedObject {
@@ -180,6 +181,19 @@ export interface NumberPlate {
   timestamp: string
   incident_id?: string
   image_url?: string
+}
+
+export interface AuthorityReport {
+  id: string
+  incident_id: string
+  report_id: string
+  authority_name: string
+  authority_type: string
+  status: 'SENT' | 'ACKNOWLEDGED' | 'RESOLVED'
+  sent_at?: string
+  acknowledged_at?: string
+  resolved_at?: string
+  details?: Record<string, unknown>
 }
 
 export interface InfrastructureItem {
